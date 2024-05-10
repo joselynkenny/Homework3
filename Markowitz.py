@@ -66,7 +66,10 @@ class EqualWeightPortfolio:
         """
         TODO: Complete Task 1 Below
         """
-
+        weight = 1 / len(assets)
+        for i in assets:
+            self.portfolio_weights[i] = weight
+        self.portfolio_weights[self.exclude] = 0
         """
         TODO: Complete Task 1 Above
         """
@@ -117,7 +120,19 @@ class RiskParityPortfolio:
         """
         TODO: Complete Task 2 Below
         """
+        returnAsset = df[assets].pct_change().dropna()
+        volatility = returnAsset.rolling(self.lookback).std()
+        for i in range(len(volatility.index) - 1):
+            date = volatility.index[i]
+            next_date = volatility.index[i + 1]
+            vol = volatility.loc[date]
+            vol[vol == 0] = 1e-10
+            rpWeight = 1 / vol
+            rpWeight /= rpWeight.sum()
 
+            for i, j in zip(assets, rpWeight):
+                self.portfolio_weights.loc[next_date, i] = j
+        self.portfolio_weights[self.exclude] = 0
         """
         TODO: Complete Task 2 Above
         """
@@ -189,12 +204,12 @@ class MeanVariancePortfolio:
                 """
                 TODO: Complete Task 3 Below
                 """
-
-                # Sample Code: Initialize Decision w and the Objective
-                # NOTE: You can modify the following code
-                w = model.addMVar(n, name="w", ub=1)
-                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
-
+                weights = model.addVars(n, lb=0.0, ub=1.0, name="w")
+                obj = gp.quicksum(mu[i] * weights[i] for i in range(n)) - gamma / 2 * gp.quicksum(Sigma[i, j] * weights[i] * weights[j] for i in range(n) for j in range(n))
+                model.setObjective(obj, gp.GRB.MAXIMIZE)
+                model.addConstr(gp.quicksum(weights[i] for i in range(n)) == 1) 
+                for i in range(n):
+                    model.addConstr(weights[i] >= 0)
                 """
                 TODO: Complete Task 3 Below
                 """

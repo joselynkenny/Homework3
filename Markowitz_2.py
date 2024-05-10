@@ -74,7 +74,30 @@ class MyPortfolio:
         """
         TODO: Complete Task 4 Below
         """
+        rfRate = 0.02
 
+        model = gp.Model()
+        weights = model.addVars(len(assets), lb=0.0, ub=1.0, name="w")
+        mean = self.returns[assets].rolling(self.lookback).mean().iloc[-1]
+        std = self.returns[assets].rolling(self.lookback).std().iloc[-1]
+        sharpe_ratio = (mean - rfRate) / std
+        excess_sharpe = gp.quicksum(sharpe_ratio[i] * weights[i] for i in range(len(assets)))
+        model.setObjective(excess_sharpe, gp.GRB.MAXIMIZE)
+        target_volatility = 0.15
+        portfolio_variance = gp.quicksum(
+            std[i] * std[j] * weights[i] * weights[j]
+            for i in range(len(assets)) for j in range(len(assets))
+        )
+        model.addConstr(portfolio_variance <= target_volatility ** 2)
+
+        for i in range(len(assets)):
+            model.addConstr(weights[i] >= 0)
+        model.addConstr(gp.quicksum(weights[i] for i in range(len(assets))) == 1)
+        model.optimize()
+
+        for i in range(len(assets)):
+            self.portfolio_weights.loc[:, assets[i]] = weights[i].x
+        self.portfolio_weights[self.exclude] = 0
         """
         TODO: Complete Task 4 Above
         """
@@ -163,6 +186,7 @@ class AssignmentJudge:
     def check_sharp_ratio_greater_than_one(self):
         if not self.check_portfolio_position(self.mp[0]):
             return 0
+        print("===========> sharoe",self.report_metrics(df, self.mp)[1])
         if self.report_metrics(df, self.mp)[1] > 1:
             print("Problem 4.1 Success - Get 10 points")
             return 10
@@ -180,6 +204,7 @@ class AssignmentJudge:
             print("Problem 4.2 Success - Get 10 points")
             return 10
         else:
+            print("===========> sharoe",self.report_metrics(Bdf, self.Bmp)[1], self.report_metrics(Bdf, self.Bmp)[0])
             print("Problem 4.2 Fail")
         return 0
 
